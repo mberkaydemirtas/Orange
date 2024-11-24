@@ -9,57 +9,133 @@ def get_user_role(username, password):
     cur.execute("SELECT * FROM Admin WHERE adusername = ?", (username,))
     if cur.fetchone():
         cur.execute("SELECT * FROM User WHERE username = ? AND password = ?", (username, password))
-        if cur.fetchone():
+        user = cur.fetchone()
+        if user:
             con.close()
-            return 'admin'
-    
+            return 'admin', user[1]  # Assuming user[1] is the name of the user
     # Check if the user is a tour guide
     cur.execute("SELECT * FROM TourGuide WHERE tgusername = ?", (username,))
     if cur.fetchone():
         cur.execute("SELECT * FROM User WHERE username = ? AND password = ?", (username, password))
-        if cur.fetchone():
+        user = cur.fetchone()
+        if user:
             con.close()
-            return 'tourguide'
+            return 'tourguide', user[1]
     
     # Check if the user is a traveler
     cur.execute("SELECT * FROM Traveler WHERE trusername = ?", (username,))
     if cur.fetchone():
         cur.execute("SELECT * FROM User WHERE username = ? AND password = ?", (username, password))
-        if cur.fetchone():
+        user = cur.fetchone()
+        if user:
             con.close()
-            return 'traveler'
+            return 'traveler', user[1]
     
     con.close()
-    return None
+    return None, None
 
-def show_admin_page():
+
+
+#ADMIN PAGES
+
+
+def show_create_tour_form():
+    layout = [
+        [sg.Text('Create a New Tour', font=('Helvetica', 16), background_color='navyblue', text_color='white')],
+        [sg.Text('Tour Name', background_color='navyblue', text_color='white'), sg.InputText(key='tname')],
+        [sg.Text('Starting Date', background_color='navyblue', text_color='white'), sg.InputText(key='stdate')],
+        [sg.Text('Ending Date', background_color='navyblue', text_color='white'), sg.InputText(key='endate')],
+        [sg.Text('Price', background_color='navyblue', text_color='white'), sg.InputText(key='price')],
+        [sg.Text('Itinerary', background_color='navyblue', text_color='white'), sg.InputText(key='itinerary')],
+        [sg.Text('Maximum Capacity', background_color='navyblue', text_color='white'), sg.InputText(key='maxcap')],
+        [sg.Button('Create Tour', button_color=('white', 'navyblue'))],
+        [sg.Button('Back', button_color=('white', 'navyblue'))]
+    ]
+    
+    window = sg.Window('Create Tour', layout, background_color='navyblue')
+    
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED :
+            break
+        if  event == 'Back':
+            window.close()
+            show_admin_page(username)
+            break
+        if event == 'Create Tour':
+            tname = values['tname']
+            stdate = values['stdate']
+            endate = values['endate']
+            price = values['price']
+            itinerary = values['itinerary']
+            maxcap = values['maxcap']
+
+            try:
+                print("Starting Create Tour logic", flush=True)
+                tname = values['tname']
+                stdate = values['stdate']
+                endate = values['endate']
+                price = values['price']
+                itinerary = values['itinerary']
+                maxcap = values['maxcap']
+
+                print(f"Inserting: {tname}, {stdate}, {endate}, {price}, {itinerary}, {maxcap}", flush=True)
+                con = sqlite3.connect('Project.db')
+                cur = con.cursor()
+                cur.execute("SELECT MAX(tid) FROM Tour")
+                result = cur.fetchone()
+                next_tid = (result[0] or 0) + 1
+                print(f"Next tid determined: {next_tid}", flush=True)
+                cur.execute("INSERT INTO Tour (tid, tname, stdate, endate, price, itinerary, maxcap) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (next_tid, tname, stdate, endate, price, itinerary, maxcap))
+                con.commit()
+                print("Insert committed successfully", flush=True)
+                sg.popup('Tour created successfully', font=('Helvetica', 14))
+            except Exception as e:
+                print(f"Error occurred: {e}", flush=True)
+            finally:
+                con.close()
+                print("Database connection closed", flush=True)
+
+    window.close()
+
+def show_admin_page(username):
     con = sqlite3.connect('Project.db')
     cur = con.cursor()
-    
-    # Query to get all admins
-    cur.execute("SELECT User.name FROM User WHERE User.username IN (SELECT adusername FROM Admin)")
-    admins = cur.fetchall()
-    
-    # Close the connection
+    cur.execute("SELECT name FROM User WHERE username = ?", (username,))
+    user = cur.fetchone()
     con.close()
+    
+    name = user[0]
     
     # Define the layout of the admin window
     layout = [
-        [sg.Text('Admin')],
-        [sg.Listbox(values=admins, size=(50, 20))],
-        [sg.Button('Exit')]
+        [sg.Text(f'Welcome {name}', font=('Helvetica', 16), justification='center', background_color='navyblue', text_color='white')],
+        [sg.Button('Create New Tour', button_color=('white', 'navyblue'))],
+        [sg.Button('Exit', button_color=('white', 'navyblue'))]
     ]
     
     # Create the admin window
-    window = sg.Window('Admin List', layout, background_color='navyblue')
+    window = sg.Window('Admin Page', layout, background_color='navyblue')
     
     # Event loop to process events and get values of inputs
     while True:
         event, values = window.read()
         if event == sg.WIN_CLOSED or event == 'Exit':
             break
-    
+        if event == 'Create New Tour':
+            window.close()
+            show_create_tour_form()
+            break
+
     window.close()
+
+
+
+
+#TOURGUIDE PAGES  
+
+
 
 def show_tourguide_page():
     # Define the layout of the tour guide window
@@ -79,6 +155,13 @@ def show_tourguide_page():
     
     window.close()
 
+
+
+
+#TRAVELER PAGES
+
+
+
 def show_traveler_page():
     # Define the layout of the traveler window
     layout = [
@@ -96,6 +179,12 @@ def show_traveler_page():
             break
     
     window.close()
+
+
+
+
+#LOGIN PAGES
+
 
 # Define the layout of the login window
 layout = [
@@ -120,10 +209,10 @@ while True:
         elif not password:
             sg.popup('Password must be entered')
         else:
-            role = get_user_role(username, password)
+            role, name = get_user_role(username, password)
             if role == 'admin':
                 window.close()
-                show_admin_page()
+                show_admin_page(username)
                 break
             elif role == 'tourguide':
                 window.close()
