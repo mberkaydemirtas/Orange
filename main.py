@@ -166,6 +166,7 @@ def show_traveler_page():
     # Define the layout of the traveler window
     layout = [
         [sg.Text('Traveler Page')],
+        [sg.Text('Transportation Options')],
         [sg.Button('Exit')]
     ]
     
@@ -175,6 +176,10 @@ def show_traveler_page():
     # Event loop to process events and get values of inputs
     while True:
         event, values = window.read()
+        if event == "Transportation Options":
+            show_transportation_page()
+            break
+
         if event == sg.WIN_CLOSED or event == 'Exit':
             break
     
@@ -226,3 +231,37 @@ while True:
                 sg.popup('Invalid username or password')
 
 window.close()
+
+#Transportation
+def show_transportation_page():
+    def get_transportation_options(next_tid):
+        con = sqlite3.connect('Project.db')
+        cur = con.cursor()
+        cur.execute("SELECT starting_point, destination, type FROM Transportation WHERE tcode = ? ", (next_tid))
+        rows = cursor.fetchall()
+        con.close()
+        return options
+
+    transportation_options = get_transportation_options(next_tid)
+
+    layout = [
+        [sg.Text("Transportation Options", font=("Helvetica", 16))],
+        [sg.Table(
+            values=transportation_options,
+            headings=["Start Point", "End Point", "Type"],
+            auto_size_columns=True,
+            justification='center',
+            key="-TABLE-",
+            num_rows=10
+        )],
+        [sg.Button("Close")]
+    ]
+
+    window = sg.Window("Transportation Viewer", layout)
+
+    while True:
+        event, values = window.read()
+        if event == sg.WINDOW_CLOSED or event == "Close":
+            break
+
+    window.close()
