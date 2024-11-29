@@ -1,5 +1,6 @@
 import PySimpleGUI as sg
 import sqlite3
+from datetime import datetime, timedelta
 
 def get_user_role(username, password):
     con = sqlite3.connect('Project.db')
@@ -40,11 +41,13 @@ def get_user_role(username, password):
 
 
 def show_create_tour_form():
+    today = datetime.today()
+    today_str = today.strftime('%Y-%m-%d')
     layout = [
         [sg.Text('Create a New Tour', font=('Helvetica', 16), background_color='navyblue', text_color='white')],
         [sg.Text('Tour Name', background_color='navyblue', text_color='white'), sg.InputText(key='tname')],
-        [sg.Text('Starting Date', background_color='navyblue', text_color='white'), sg.InputText(key='stdate')],
-        [sg.Text('Ending Date', background_color='navyblue', text_color='white'), sg.InputText(key='endate')],
+        [sg.Text('Starting Date', background_color='navyblue', text_color='white'), sg.Input(key='stdate', size=(20, 1)), sg.CalendarButton("Choose Starting Date", target="stdate", format="%Y-%m-%d", default_date_m_d_y=(today.month, today.day, today.year), close_when_date_chosen=True, begin_at_sunday_plus=1)],
+        [sg.Text('Ending Date', background_color='navyblue', text_color='white'), sg.Input(key='endate', size=(20, 1)), sg.CalendarButton("Choose Ending Date", target="endate", format="%Y-%m-%d", close_when_date_chosen=True, begin_at_sunday_plus=1)],
         [sg.Text('Price', background_color='navyblue', text_color='white'), sg.InputText(key='price')],
         [sg.Text('Itinerary', background_color='navyblue', text_color='white'), sg.InputText(key='itinerary')],
         [sg.Text('Maximum Capacity', background_color='navyblue', text_color='white'), sg.InputText(key='maxcap')],
@@ -69,6 +72,22 @@ def show_create_tour_form():
             price = values['price']
             itinerary = values['itinerary']
             maxcap = values['maxcap']
+
+            # Validate dates
+            if not stdate or not endate:
+                sg.popup('Please choose both starting and ending dates.', font=('Helvetica', 14))
+                continue
+
+            stdate_obj = datetime.strptime(stdate, '%Y-%m-%d')
+            endate_obj = datetime.strptime(endate, '%Y-%m-%d')
+
+            if stdate_obj < today:
+                sg.popup('Starting date cannot be earlier than today.', font=('Helvetica', 14))
+                continue
+
+            if endate_obj < stdate_obj:
+                sg.popup('Ending date cannot be earlier than starting date.', font=('Helvetica', 14))
+                continue
 
 
             try:
@@ -132,19 +151,44 @@ def show_add_transportation():
     ("Bus", "Warsaw", "Krakow"),
     ("Boat", "Oslo", "Copenhagen")
 ] 
-    
+    con = sqlite3.connect('Project.db')
+    cur = con.cursor()
+    cur.execute("SELECT MAX(tid) FROM Tour")
+    result1 = cur.fetchone()
+    t_code = result1[0]
+
+    cur.execute("SELECT stdate,endate FROM Tour WHERE tid = ?",  (t_code,))
+    result2 = cur.fetchone()
+    stdate = result2[0]
+    endate = result2[1]
+    con.close()
+
+    # Convert the start and end dates to datetime objects
+    start_date_obj = datetime.strptime(stdate, '%Y-%m-%d')
+    end_date_obj = datetime.strptime(endate, '%Y-%m-%d')
+
+    # Generate a list of dates between start_date_obj and end_date_obj
+    available_dates = []
+    current_date = start_date_obj
+    while current_date <= end_date_obj:
+        available_dates.append(current_date.strftime('%Y-%m-%d'))
+        current_date += timedelta(days=1)
+
     layout = [
         [sg.Text("Choose Transportation of Tour", font=('Helvetica', 16))],
+        [sg.Listbox(available_dates, key="selected_dates", size=(30, 10), select_mode='multiple')],
         [sg.Text("Filter by type", font=('Helvetica', 16))],
         [sg.Combo(["All", "Plane", "Train", "Boat", "Bus"], key="t_filter", default_value="All", enable_events=True)],
         [sg.Text("Filter by starting point", font=('Helvetica', 16))],
         [sg.Combo(["All", "Istanbul", "Moscow", "Berlin", "Athens", "New York", "Tokyo", "London", "Madrid", "Naples", "Los Angeles", "Dubai", "Zurich", "Helsinki", "Tallinn", "Bangkok", "Munich", "Brussels", "Sydney", "Warsaw", "Oslo"], key= "s_filter", default_value="All", enable_events=True)],
         [sg.Text("Filter by destination", font=('Helvetica', 16))],
         [sg.Combo(["All",'Rome', 'Paris', 'Prague', 'Santorini', 'Boston', 'Seoul', 'Edinburgh', 'Barcelona', 'Palermo', 'San Francisco', 'Cairo', 'Geneva', 'Stockholm', 'Helsinki', 'Singapore', 'Vienna', 'Amsterdam', 'Melbourne', 'Krakow', 'Copenhagen'], key= "d_filter", default_value="All", enable_events=True)],
+        [sg.Text("Available Transportation Options", font=('Helvetica', 16))],
         [sg.Listbox(transportation_options, key="transportation_options", size=(30, len(transportation_options)), select_mode='single', enable_events=True)],
         [sg.Button("Done", font=('Helvetica', 16))],
         [sg.Button("Close", font=('Helvetica', 16))]]
-    
+        
+    layout = [[sg.Column(layout, scrollable=True, vertical_scroll_only=True, size=(600, 400))]]
     window = sg.Window('Transportation_Page', layout)
 
     def filter_transportation(options, t_filter, s_filter, d_filter):
@@ -160,9 +204,13 @@ def show_add_transportation():
         event, values = window.read()
         if event == sg.WINDOW_CLOSED or event == "Close":
             break
+        
         if event in ("t_filter", "s_filter", "d_filter"):
             filtered_options = filter_transportation(transportation_options, values["t_filter"], values["s_filter"], values["d_filter"])
             window["transportation_options"].update(filtered_options)
+
+        if event == "Done":
+                    
             try:
                 print("Starting choose tour options", flush=True)
                 t_type = transportation_options[0]
@@ -172,9 +220,6 @@ def show_add_transportation():
                 print(f"Inserting: {t_type}, {t_start}, {t_destination}", flush=True)
                 con = sqlite3.connect('Project.db')
                 cur = con.cursor()
-                cur.execute("SELECT MAX(tid) FROM Tour")
-                result = cur.fetchone()
-                t_code = result[0]
                 cur.execute("INSERT INTO Transportation (tcode, type, starting_point, destination) VALUES (?, ?, ?, ?)",
                                 (t_code, t_type[0], t_start[1], t_destination[2]))
                 con.commit()
