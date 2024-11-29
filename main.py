@@ -136,40 +136,47 @@ def show_add_transportation():
     layout = [
         [sg.Text("Choose Transportation of Tour", font=('Helvetica', 16))],
         [sg.Text("Filter by type", font=('Helvetica', 16))],
-        [sg.Combo(["All", "Plane", "Train", "Boat", "Bus"], key="t_filter", enable_events=True)],
+        [sg.Combo(["All", "Plane", "Train", "Boat", "Bus"], key="t_filter", default_value="All", enable_events=True)],
         [sg.Text("Filter by starting point", font=('Helvetica', 16))],
-        [sg.Combo(["All", "Istanbul", "Moscow", "Berlin", "Athens", "New York", "Tokyo", "London", "Madrid", "Naples", "Los Angeles", "Dubai", "Zurich", "Helsinki", "Tallinn", "Bangkok", "Munich", "Brussels", "Sydney", "Warsaw", "Oslo"], key= "s_filter", enable_events=True)],
+        [sg.Combo(["All", "Istanbul", "Moscow", "Berlin", "Athens", "New York", "Tokyo", "London", "Madrid", "Naples", "Los Angeles", "Dubai", "Zurich", "Helsinki", "Tallinn", "Bangkok", "Munich", "Brussels", "Sydney", "Warsaw", "Oslo"], key= "s_filter", default_value="All", enable_events=True)],
         [sg.Text("Filter by destination", font=('Helvetica', 16))],
-        [sg.Combo(["All",'Rome', 'Paris', 'Prague', 'Santorini', 'Boston', 'Seoul', 'Edinburgh', 'Barcelona', 'Palermo', 'San Francisco', 'Cairo', 'Geneva', 'Stockholm', 'Helsinki', 'Singapore', 'Vienna', 'Amsterdam', 'Melbourne', 'Krakow', 'Copenhagen'], key= "d_filter", enable_events=True)],
+        [sg.Combo(["All",'Rome', 'Paris', 'Prague', 'Santorini', 'Boston', 'Seoul', 'Edinburgh', 'Barcelona', 'Palermo', 'San Francisco', 'Cairo', 'Geneva', 'Stockholm', 'Helsinki', 'Singapore', 'Vienna', 'Amsterdam', 'Melbourne', 'Krakow', 'Copenhagen'], key= "d_filter", default_value="All", enable_events=True)],
         [sg.Listbox(transportation_options, key="transportation_options", size=(30, len(transportation_options)), select_mode='single', enable_events=True)],
         [sg.Button("Done", font=('Helvetica', 16))],
         [sg.Button("Close", font=('Helvetica', 16))]]
     
     window = sg.Window('Transportation_Page', layout)
-    
+
+    def filter_transportation(options, t_filter, s_filter, d_filter):
+        filtered_options = []
+        for option in options:
+            if (t_filter == "All" or option[0] == t_filter) and \
+               (s_filter == "All" or option[1] == s_filter) and \
+               (d_filter == "All" or option[2] == d_filter):
+                filtered_options.append(option)
+        return filtered_options
 
     while True:
         event, values = window.read()
         if event == sg.WINDOW_CLOSED or event == "Close":
             break
-        if event == "Done":
-            t_transportation = values['transportation_options']
+        if event in ("t_filter", "s_filter", "d_filter"):
+            filtered_options = filter_transportation(transportation_options, values["t_filter"], values["s_filter"], values["d_filter"])
+            window["transportation_options"].update(filtered_options)
             try:
                 print("Starting choose tour options", flush=True)
-                t_transportation = values['transportation_options']
+                t_type = transportation_options[0]
+                t_start = transportation_options[1]
+                t_destination = transportation_options[2]
 
-
-                print(f"Inserting: {t_type}, {t_start}, {t_destination}",  flush=True)
+                print(f"Inserting: {t_type}, {t_start}, {t_destination}", flush=True)
                 con = sqlite3.connect('Project.db')
                 cur = con.cursor()
                 cur.execute("SELECT MAX(tid) FROM Tour")
                 result = cur.fetchone()
                 t_code = result[0]
-                t_type= t_transportation[0]
-                t_start = t_transportation[1]
-                t_destination = t_transportation[2]
                 cur.execute("INSERT INTO Transportation (tcode, type, starting_point, destination) VALUES (?, ?, ?, ?)",
-                                (t_code, t_type[0], t_start[0], t_destination[0]))
+                                (t_code, t_type[0], t_start[1], t_destination[2]))
                 con.commit()
                 print("Insert committed successfully", flush=True)
                 sg.popup('Transportation created successfully', font=('Helvetica', 14))
@@ -178,7 +185,6 @@ def show_add_transportation():
             finally:
                 con.close()
                 print("Database connection closed", flush=True)
-            
 
     window.close()
     
