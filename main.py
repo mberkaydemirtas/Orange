@@ -173,6 +173,7 @@ def show_add_transportation():
     while current_date <= end_date_obj:
         available_dates.append(current_date.strftime('%Y-%m-%d'))
         current_date += timedelta(days=1)
+    assigned_transportation = {date: None for date in available_dates}
 
     layout = [
         [sg.Text("Choose Transportation of Tour", font=('Helvetica', 16))],
@@ -185,7 +186,7 @@ def show_add_transportation():
         [sg.Combo(["All",'Rome', 'Paris', 'Prague', 'Santorini', 'Boston', 'Seoul', 'Edinburgh', 'Barcelona', 'Palermo', 'San Francisco', 'Cairo', 'Geneva', 'Stockholm', 'Helsinki', 'Singapore', 'Vienna', 'Amsterdam', 'Melbourne', 'Krakow', 'Copenhagen'], key= "d_filter", default_value="All", enable_events=True)],
         [sg.Text("Available Transportation Options", font=('Helvetica', 16))],
         [sg.Listbox(transportation_options, key="transportation_options", size=(30, len(transportation_options)), select_mode='single', enable_events=True)],
-        [sg.Button("Done", font=('Helvetica', 16))],
+        [sg.Button("Assign Transportation", font=('Helvetica', 16))],
         [sg.Button("Close", font=('Helvetica', 16))]]
         
     layout = [[sg.Column(layout, scrollable=True, vertical_scroll_only=True, size=(600, 400))]]
@@ -209,8 +210,15 @@ def show_add_transportation():
             filtered_options = filter_transportation(transportation_options, values["t_filter"], values["s_filter"], values["d_filter"])
             window["transportation_options"].update(filtered_options)
 
-        if event == "Done":
-                    
+        if event == "Assign Transportation":
+            selected_dates = values["selected_dates"]
+            t_transportation = values['transportation_options']
+            if not selected_dates:
+                sg.popup("Please select at least one date.", font=('Helvetica', 14))
+                continue
+            if not t_transportation:
+                sg.popup("Please select a transportation option.", font=('Helvetica', 14))
+                continue        
             try:
                 print("Starting choose tour options", flush=True)
                 t_type = transportation_options[0]
